@@ -28,12 +28,13 @@ public class EnergyGenerator : MonoBehaviour
     [Space]
     [SerializeField]
     GameObject[] barEnergy;
-    int currentBar = 0;
+    public int currentBar = 0;
     // Start is called before the first frame update
     void Start()
     {
     }
     public void Initialize(){
+        if(invokeRepeat != null) StopCoroutine(invokeRepeat);
         // Clear Container
         ClearContainer();
         currentBar = 0;
@@ -62,23 +63,53 @@ public class EnergyGenerator : MonoBehaviour
             Destroy(barContainer.GetChild(i).gameObject);
         }
     }
-    IEnumerator GenerateEnergy(int id, float duration){
-        print(barEnergy[id].name);
-        Image image = barEnergy[id].transform.GetChild(0).GetComponent<Image>();
-        float t = 0;
+    IEnumerator GenerateEnergy(int _id, float _duration){
+        Image image = barEnergy[_id].transform.GetChild(0).GetComponent<Image>();
+        float t = image.fillAmount;
 
         while(t<1){
 
             yield return null;
 
-            t += Time.deltaTime/duration;
+            t += Time.deltaTime/_duration;
             
             image.fillAmount = Mathf.Lerp(0,1,t);
         }
         
-        if(currentBar+1 < barEnergy.Length){
-            currentBar++;
-            yield return GenerateEnergy(currentBar,definedRate);
+        currentBar++;
+
+        while (currentBar >= barEnergy.Length)
+        {
+            yield return null;
         }
+        yield return GenerateEnergy(currentBar,definedRate);
+    }
+    public void EnergyDecrease(int _amount){
+        StopCoroutine(invokeRepeat);
+        // get value current bar
+        float valueCurrentBar = 0;
+        if(currentBar < barEnergy.Length){
+            Image image = barEnergy[currentBar].transform.GetChild(0).GetComponent<Image>();
+            valueCurrentBar = image.fillAmount;
+        }
+
+        // decrease bar
+        currentBar -= _amount;
+        if(currentBar < 0) currentBar = 0;
+
+        // Change ui image fill
+        for (int i = 0; i < barContainer.childCount; i++)
+        {
+            Image imageBar = barEnergy[i].transform.GetChild(0).GetComponent<Image>();
+            if(i < currentBar)
+                imageBar.fillAmount = 1;
+            else if(i == currentBar){
+                imageBar.fillAmount = valueCurrentBar;
+            }else{
+                imageBar.fillAmount = 0;
+            }
+        }
+
+        invokeRepeat = StartCoroutine(GenerateEnergy(currentBar, definedRate));
     }
 }

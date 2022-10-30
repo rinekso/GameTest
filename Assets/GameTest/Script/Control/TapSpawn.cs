@@ -13,12 +13,11 @@ public class TapSpawn : MonoBehaviour
         
         if (collider.Raycast(ray, out hit, hitDistance))
         {
+            // print(hit.collider.tag);
             if(hit.collider.tag == "Field" && GameController.instance.isStart)
             {
-                Debug.Log(hit.point);
                 GameController.instance.SpawnPawn(gameObject,hit.point);
             }
         } 
-        print("mouse click");
     }
 }
