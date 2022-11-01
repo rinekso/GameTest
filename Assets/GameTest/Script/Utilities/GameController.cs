@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEditor;
+using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour
 {
     public static GameController instance;
+    public bool pinaltyMode = false;
 
     public enum PlayerSide
     {
@@ -35,6 +38,12 @@ public class GameController : MonoBehaviour
     [SerializeField]
     GameObject blackPanel;
     [SerializeField]
+    GameObject completePanel;
+    [SerializeField]
+    TextMeshProUGUI scoreText;
+    [SerializeField]
+    TextMeshProUGUI finalText;
+    [SerializeField]
     TextMeshProUGUI titleText;
 
     [Header("Timer")]
@@ -59,13 +68,22 @@ public class GameController : MonoBehaviour
     private void Start() {
         MatchStart();
     }
+    public void GoToScene(string _scene){
+        Application.LoadLevel(_scene);
+    }
+    public void ReloadScene(){
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
     public void MatchStart(){
         currentTime = durationState;
 
         blackPanel.SetActive(true);
         titleText.gameObject.SetActive(true);
         
-        titleText.text = "Match "+currentMatch;
+        if(pinaltyMode)
+            titleText.text = "Pinalty Mode";
+        else
+            titleText.text = "Match "+currentMatch;
         
         StartCoroutine(StartingMatch());
     }
@@ -81,6 +99,7 @@ public class GameController : MonoBehaviour
             yield return new WaitForSeconds(1);
         }
 
+        SoundController.instance.PlaySFX(0);
         titleText.text = "Go!!!";
         yield return new WaitForSeconds(1);
         blackPanel.SetActive(false);
@@ -88,7 +107,7 @@ public class GameController : MonoBehaviour
         // Energy start
         foreach (var item in playerInfos)
         {
-            item.energy.Initialize();
+            if(item.energy != null) item.energy.Initialize();
         }
 
         isStart = true;
@@ -100,25 +119,53 @@ public class GameController : MonoBehaviour
         CheckingPawn(result, (result.playerSide == PlayerSide.ATTACKER) ? result.pawnAtk : result.pawnDef, _position);
     }
     void CheckingPawn(PlayerInfo _playerInfo, GameObject _prefab, Vector3 _position){
-        int cost = _prefab.GetComponent<PawnAttribute>().cost;
-        if(_playerInfo.energy.currentBar >= cost){
-            _playerInfo.energy.EnergyDecrease(cost);
+        if(pinaltyMode){
             GameObject go = Instantiate(
                 _prefab,
                 _position,
                 _prefab.transform.rotation);
             go.GetComponent<PawnAttribute>().startPosition = _position;
+        }else{
+            int cost = _prefab.GetComponent<PawnAttribute>().cost;
+            if(_playerInfo.energy.currentBar >= cost){
+                _playerInfo.energy.EnergyDecrease(cost);
+                GameObject go = Instantiate(
+                    _prefab,
+                    _position,
+                    _prefab.transform.rotation);
+                go.GetComponent<PawnAttribute>().startPosition = _position;
+            }
         }
     }
     void SpawnBall(){
         Collider collider = playerInfos.Find( x => x.playerSide == PlayerSide.ATTACKER).area.GetComponent<Collider>();
         float margin = .05f;
-        Vector3 randomPos = new Vector3(
-            UnityEngine.Random.Range(collider.bounds.min.x + margin, collider.bounds.max.x - margin), 
-            collider.bounds.max.y + ballPrefabs.transform.localScale.y/2,
-            UnityEngine.Random.Range(collider.bounds.min.z + margin, collider.bounds.max.z - margin)
-        );
+        Vector3 randomPos;
+        if(pinaltyMode){
+            randomPos = GetRandomGameBoardLocation();
+        }else{
+            randomPos = new Vector3(
+                UnityEngine.Random.Range(collider.bounds.min.x + margin, collider.bounds.max.x - margin), 
+                collider.bounds.max.y + ballPrefabs.transform.localScale.y/2,
+                UnityEngine.Random.Range(collider.bounds.min.z + margin, collider.bounds.max.z - margin)
+            );
+        }
+
         Instantiate(ballPrefabs,randomPos,new Quaternion());
+    }
+    private Vector3 GetRandomGameBoardLocation()
+    {
+        NavMeshTriangulation navMeshData = NavMesh.CalculateTriangulation();
+ 
+        int maxIndices = navMeshData.indices.Length - 3;
+ 
+        // pick the first indice of a random triangle in the nav mesh
+        int firstVertexSelected = UnityEngine.Random.Range(0, maxIndices);
+ 
+        // spawn on verticies
+        Vector3 point = navMeshData.vertices[navMeshData.indices[firstVertexSelected]];
+ 
+        return point;
     }
     public PlayerInfo Opponent(int _playerID){
         for (int i = 0; i < playerInfos.Count; i++)
@@ -136,7 +183,7 @@ public class GameController : MonoBehaviour
         }
     }
     public Vector3 TargetGate(int _playerID){
-        return Opponent(_playerID).gate.transform.position;
+        return Opponent(_playerID).gate.transform.Find("GatePoin").position;
     }
 
     // Update is called once per frame
@@ -151,30 +198,74 @@ public class GameController : MonoBehaviour
                 UpdateTimeText();
         }
     }
-    public void MatchEnd(bool isGol = false){
+    void GameEnd(){
+        completePanel.SetActive(true);
+        titleText.gameObject.SetActive(false);
+
+        if(!pinaltyMode){
+            scoreText.text = "Score <br>"+
+                "Player 1 = "+playerInfos[0].score+"<br>"+
+                "Player 2 = "+playerInfos[1].score;
+
+            if(playerInfos[0].score > playerInfos[1].score)
+                finalText.text = "Player 1 Win!!!";
+            else if(playerInfos[0].score < playerInfos[1].score)
+                finalText.text = "Player 2 Win!!!";
+            else
+                finalText.text = "Draw";
+
+        }else{
+            scoreText.text = "You made it !!!";
+        }
+        
+    }
+    public void MatchEnd(bool _isGol = false){
         if(!ending){
             ending = true;
             isStart = false;
             print("Match End");
-            StartCoroutine(ClosingMatch(isGol));
+            StartCoroutine(ClosingMatch(_isGol));
         }
     }
-    IEnumerator ClosingMatch(bool isGol){
+    IEnumerator ClosingMatch(bool _isGol){
         blackPanel.SetActive(true);
 
         int playerWin = 0;
         for (int i = 0; i < playerInfos.Count; i++)
         {
             PlayerInfo playerInfoTemp = playerInfos[i];
-            if(isGol){
-                if(playerInfoTemp.getBall) playerInfoTemp.score++; playerWin = i;
+            if(_isGol){
+                if(playerInfoTemp.getBall){ playerInfoTemp.score++; playerWin = i; }
             }else{
-                if(!playerInfoTemp.getBall) playerInfoTemp.score++; playerWin = i;
+                if(!playerInfoTemp.getBall) playerWin = i;
             }
             playerInfos[i] = playerInfoTemp;
         }
-        titleText.text = "Player " + (playerWin+1) + "Win";
-        yield return new WaitForSeconds(2);
+        print(playerWin+" win");
+        bool isDraw = false;
+        if(!_isGol){
+            AttackerBehavior[] attacker = GameObject.FindObjectsOfType<AttackerBehavior>();
+            for (int i = 0; i < attacker.Length; i++)
+            {
+                if(attacker[i].isPawnActive){
+                    isDraw = true;
+                    break;
+                }
+            }
+        }
+
+        if(isDraw)
+            titleText.text = "Draw";
+        else{
+            if(!_isGol && !isDraw){
+                PlayerInfo playerInfoTemp = playerInfos[playerWin];
+                playerInfoTemp.score++;
+                playerInfos[playerWin] = playerInfoTemp;
+            }
+            titleText.text = "Player " + (playerWin+1) + "Win";
+        }
+        print(_isGol+"/"+isDraw);
+        yield return new WaitForSeconds(4);
         PreparingMatchStart();
     }
     void PreparingMatchStart(){
@@ -183,10 +274,16 @@ public class GameController : MonoBehaviour
         ClearObject("Ball");
 
         // Reset player and switch side
-        PlayerResetAndSwitchSide();
+        if(!pinaltyMode) PlayerResetAndSwitchSide();
 
         if(currentMatch < maxMatch)
             currentMatch++;
+        else{
+            print("final match");;
+            GameEnd();
+            return;
+        }
+            
         MatchStart();
     }
     void PlayerResetAndSwitchSide(){

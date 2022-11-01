@@ -38,13 +38,14 @@ public class DefenderBehavior : PawnAttribute
             PawnAttribute pawn = other.gameObject.GetComponent<PawnAttribute>();
             // print("got");
             isChasing = false;
+            GetComponent<SphereCollider>().enabled = true;
+
             if(pawn.side == GameController.PlayerSide.ATTACKER && pawn.isPawnActive){
                 isPawnActive = false;
                 isReturn = true;
                 Deactive();
                 targetChasing.GetComponent<PawnAttribute>().Deactive();
             }else if(pawn.side == GameController.PlayerSide.ATTACKER && !pawn.isPawnActive){
-                GetComponent<SphereCollider>().enabled = true;
                 isPawnActive = true;
 
                 agent.isStopped = true;
@@ -65,7 +66,6 @@ public class DefenderBehavior : PawnAttribute
     void Stop()
     {
         if(isReturn){
-            animator.SetFloat("Blend",0);
             isChasing = false;
             isReturn = false;
             isPawnActive = true;

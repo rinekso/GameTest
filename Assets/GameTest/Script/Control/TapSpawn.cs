@@ -4,12 +4,17 @@ using UnityEngine;
 
 public class TapSpawn : MonoBehaviour
 {
+    [SerializeField]
+    Camera camera;
     Ray ray;
     RaycastHit hit;
     float hitDistance = 100f;
     private void OnMouseDown() {
         Collider collider = GetComponent<Collider>();
-        ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        if(camera != null)
+            ray = camera.ScreenPointToRay(Input.mousePosition);
+        else
+            ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         
         if (collider.Raycast(ray, out hit, hitDistance))
         {

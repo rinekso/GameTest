@@ -12,8 +12,8 @@ public class GateIndicator : MonoBehaviour
     private void OnTriggerEnter(Collider other) {
         if(other.GetComponent<PawnAttribute>()){
             PawnAttribute pawn = other.GetComponent<PawnAttribute>();
-            print("gate "+pawn.GetPlayerID());
             if(pawn.side == GameController.PlayerSide.ATTACKER && pawn.GetPlayerID() != playerId && other.GetComponent<AttackerBehavior>().isGetBall){
+                SoundController.instance.PlaySFX(1);
                 GameController.instance.MatchEnd(true);
             }
         }

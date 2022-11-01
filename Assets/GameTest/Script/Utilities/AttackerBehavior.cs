@@ -38,6 +38,8 @@ public class AttackerBehavior : PawnAttribute
     public void GetBall(){
         isGetBall = true;
         agent.speed = carryingSpeed;
+        Vector3 pos = GameController.instance.TargetGate(GetPlayerID());
+        print("goto gate = "+pos.x+"/"+pos.y+"/"+pos.z);
         GoTo(GameController.instance.TargetGate(GetPlayerID()));
     }
     protected override void Reactive(){

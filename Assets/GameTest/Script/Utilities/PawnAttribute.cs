@@ -28,6 +28,8 @@ public class PawnAttribute : MonoBehaviour
     Vector3 velocity;
     [SerializeField]
     float distance;
+    [SerializeField]
+    bool isStop;
     
 
     [Space]
@@ -71,6 +73,7 @@ public class PawnAttribute : MonoBehaviour
     protected void GoTo(Vector3 _destination){
         animator.SetFloat("Blend",1);
         // print(gameObject.name + "-destination = "+_destination);
+        print("goto destination = "+_destination.x+"/"+_destination.y+"/"+_destination.z);
         agent.SetDestination(_destination);
     }
     // Update is called once per frame
@@ -79,11 +82,14 @@ public class PawnAttribute : MonoBehaviour
         destination = agent.destination;
         velocity = agent.velocity;
         distance = agent.remainingDistance;
+        isStop = agent.isStopped;
         
         if(!agent.pathPending){
             if(agent.remainingDistance <= agent.stoppingDistance){
                 if(!agent.hasPath || agent.velocity.sqrMagnitude == 0){
-                    agent.isStopped = true;
+                    if(!GameController.instance.pinaltyMode)
+                        agent.isStopped = true;
+                    // print("set animation zero");
                     animator.SetFloat("Blend",0);
                 }
             }
